@@ -5,17 +5,37 @@
 
 const express = require("express");
 const cors    = require("cors");
+const path    = require("path"); // Necesario para manejar rutas de archivos
 require("dotenv").config();
 
 const app  = express();
+
+// --- Middlewares ---
 app.use(cors());
 app.use(express.json());
 
-// ── Credenciales (pon tus datos en el archivo .env) ──────────
-const WA_TOKEN      = process.env.WA_TOKEN;       // Access Token de Meta
-const PHONE_ID      = process.env.PHONE_ID;       // Phone Number ID
-const DEST_NUMBER   = process.env.DEST_NUMBER;    // Tu número (ej: 51987654321)
+// --- Servir archivos estáticos ---
+// Esto permite que el navegador encuentre archivos CSS o JS si los usas
+app.use(express.static(__dirname)); 
+
+// --- Credenciales ---
+const WA_TOKEN    = process.env.WA_TOKEN;    
+const PHONE_ID    = process.env.PHONE_ID;    
+const DEST_NUMBER   = process.env.DEST_NUMBER; 
 const PORT          = process.env.PORT || 3000;
+
+// --- RUTA PRINCIPAL (Aquí es donde cargará tu HTML) ---
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "gestor.html"));
+});
+
+// --- Aquí puedes agregar tus rutas de la API de WhatsApp ---
+// Ejemplo: app.post("/enviar-mensaje", (req, res) => { ... });
+
+// --- Inicio del Servidor ---
+app.listen(PORT, () => {
+  console.log(`🚀 Servidor listo y corriendo en el puerto ${PORT}`);
+});
 
 // ── Función central: envía mensaje de texto por WhatsApp ─────
 async function enviarMensaje(numero, texto) {
