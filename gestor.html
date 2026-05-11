@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VentasWA — Gestor de Ventas</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --wa: #25D366; --wa-dark: #128C7E; --wa-light: #DCF8C6;
+    --bg: #f5f5f0; --surface: #ffffff; --surface2: #f0efea;
+    --border: rgba(0,0,0,0.1); --text: #1a1a18; --muted: #6b6b66;
+    --r: 8px; --rl: 12px;
+    --success: #0F6E56; --danger: #A32D2D; --info: #185FA5; --warn: #854F0B;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; }
+  .app { display: flex; flex: 1; overflow: hidden; max-width: 1100px; margin: 16px auto; width: 100%; border-radius: var(--rl); border: 0.5px solid var(--border); background: var(--surface); }
+
+  /* Sidebar */
+  .sidebar { width: 210px; background: var(--surface2); border-right: 0.5px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+  .logo { padding: 18px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 0.5px solid var(--border); }
+  .logo-icon { width: 32px; height: 32px; background: var(--wa); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .logo-text { font-size: 14px; font-weight: 600; }
+  .logo-sub { font-size: 10px; color: var(--muted); }
+  nav { flex: 1; padding: 10px 8px; }
+  .nav-item { display: flex; align-items: center; gap: 9px; padding: 9px 11px; border-radius: var(--r); cursor: pointer; font-size: 13px; color: var(--muted); margin-bottom: 2px; user-select: none; }
+  .nav-item:hover { background: var(--surface); color: var(--text); }
+  .nav-item.active { background: var(--surface); color: var(--text); font-weight: 500; }
+  .nav-item .icon { font-size: 16px; width: 18px; text-align: center; }
+  .wa-status { margin: 8px; padding: 11px; background: var(--surface); border-radius: var(--r); border: 0.5px solid var(--border); }
+  .wa-status-head { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 500; margin-bottom: 3px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #ccc; flex-shrink: 0; }
+  .dot.online { background: var(--wa); }
+  .dot.offline { background: var(--danger); }
+  .wa-num { font-size: 11px; color: var(--muted); }
+  .wa-url { font-size: 10px; color: var(--muted); margin-top: 2px; word-break: break-all; }
+
+  /* Main */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .topbar { padding: 13px 18px; border-bottom: 0.5px solid var(--border); display: flex; align-items: center; gap: 8px; background: var(--surface); }
+  .page-title { font-size: 15px; font-weight: 600; flex: 1; }
+  .btn { padding: 7px 13px; border-radius: var(--r); font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; border: 0.5px solid var(--border); background: var(--surface); color: var(--text); transition: background 0.15s; }
+  .btn:hover { background: var(--surface2); }
+  .btn:active { transform: scale(0.98); }
+  .btn-wa { background: var(--wa); color: #fff; border-color: var(--wa); }
+  .btn-wa:hover { background: var(--wa-dark); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* Panels */
+  .panel { display: none; flex: 1; overflow-y: auto; padding: 18px; }
+  .panel.active { display: block; }
+
+  /* Metrics */
+  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; }
+  .metric { background: var(--surface2); border-radius: var(--r); padding: 13px; }
+  .metric-label { font-size: 11px; color: var(--muted); margin-bottom: 5px; }
+  .metric-val { font-size: 22px; font-weight: 600; }
+  .metric-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .metric-sub.up { color: var(--success); }
+  .metric-sub.wa { color: var(--wa-dark); }
+
+  /* Table */
+  .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .section-title { font-size: 13px; font-weight: 600; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th { text-align: left; padding: 7px 11px; color: var(--muted); font-weight: 400; border-bottom: 0.5px solid var(--border); font-size: 11px; white-space: nowrap; }
+  td { padding: 8px 11px; border-bottom: 0.5px solid var(--border); }
+  tr:hover td { background: var(--surface2); }
+  .badge { display: inline-flex; padding: 2px 9px; border-radius: 10px; font-size: 11px; font-weight: 500; white-space: nowrap; }
+  .badge-green { background: #EAF3DE; color: #3B6D11; }
+  .badge-amber { background: #FAEEDA; color: #854F0B; }
+  .badge-blue  { background: #E6F1FB; color: #185FA5; }
+  .badge-red   { background: #FCEBEB; color: #A32D2D; }
+  .wa-btn-cell { background: none; border: none; cursor: pointer; color: var(--wa); font-size: 17px; padding: 2px 5px; line-height: 1; }
+  .wa-btn-cell:hover { color: var(--wa-dark); }
+  .empty-msg { text-align: center; padding: 30px; color: var(--muted); font-size: 13px; }
+
+  /* Notif log */
+  .notif-list { display: flex; flex-direction: column; gap: 7px; }
+  .notif-item { display: flex; gap: 10px; background: var(--surface2); border-radius: var(--r); padding: 10px 12px; border: 0.5px solid var(--border); }
+  .notif-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--wa-light); display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+  .notif-body { flex: 1; }
+  .notif-title { font-size: 12.5px; font-weight: 500; }
+  .notif-time { font-size: 11px; color: var(--muted); }
+  .notif-msg { font-size: 11px; color: var(--muted); margin-top: 2px; font-style: italic; }
+
+  /* Config */
+  .config-card { background: var(--surface2); border: 0.5px solid var(--border); border-radius: var(--r); padding: 16px; margin-bottom: 14px; }
+  .config-title { font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+  .form-row { display: flex; gap: 10px; margin-bottom: 9px; align-items: center; }
+  .form-row label { font-size: 12px; color: var(--muted); width: 120px; flex-shrink: 0; }
+  .form-row input { flex: 1; padding: 7px 10px; font-size: 13px; border: 0.5px solid var(--border); border-radius: var(--r); background: var(--surface); color: var(--text); }
+  .form-row input:focus { outline: none; border-color: var(--wa); }
+
+  /* Modal */
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100; align-items: center; justify-content: center; }
+  .overlay.open { display: flex; }
+  .modal-box { background: var(--surface); border-radius: var(--rl); padding: 22px; width: 340px; border: 0.5px solid var(--border); }
+  .modal-title { font-size: 15px; font-weight: 600; margin-bottom: 14px; display: flex; align-items: center; gap: 7px; }
+  .modal-input { width: 100%; padding: 9px 11px; border: 0.5px solid var(--border); border-radius: var(--r); font-size: 13px; margin-bottom: 9px; background: var(--surface2); color: var(--text); }
+  .modal-input:focus { outline: none; border-color: var(--wa); }
+  .modal-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+  .modal-check { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); cursor: pointer; margin-top: 4px; }
+
+  /* Toast */
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1a1a18; color: #fff; padding: 9px 18px; border-radius: 20px; font-size: 13px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 300; white-space: nowrap; }
+  .toast.show { opacity: 1; }
+  .toast.err { background: var(--danger); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="logo">
+      <div class="logo-icon">💬</div>
+      <div>
+        <div class="logo-text">VentasWA</div>
+        <div class="logo-sub">Gestor de ventas</div>
+      </div>
+    </div>
+    <nav>
+      <div class="nav-item active" onclick="switchTab('dashboard',this)"><span class="icon">📊</span> Dashboard</div>
+      <div class="nav-item" onclick="switchTab('ventas',this)"><span class="icon">🛒</span> Ventas</div>
+      <div class="nav-item" onclick="switchTab('log',this)"><span class="icon">🔔</span> Historial WA</div>
+      <div class="nav-item" onclick="switchTab('config',this)"><span class="icon">⚙️</span> Configuración</div>
+    </nav>
+    <div class="wa-status">
+      <div class="wa-status-head"><div class="dot" id="dot"></div><span id="status-txt">Verificando...</span></div>
+      <div class="wa-num" id="wa-num">—</div>
+      <div class="wa-url" id="wa-url">localhost:3000</div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <span class="page-title" id="page-title">Dashboard</span>
+      <button class="btn" onclick="checkHealth()">🔄 Verificar conexión</button>
+      <button class="btn btn-wa" onclick="openModal()">+ Nueva venta</button>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="panel active" id="panel-dashboard">
+      <div class="metrics">
+        <div class="metric">
+          <div class="metric-label">Ventas hoy</div>
+          <div class="metric-val" id="m-total">S/ 0.00</div>
+          <div class="metric-sub up" id="m-sub">sin ventas aún</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Pedidos</div>
+          <div class="metric-val" id="m-pedidos">0</div>
+          <div class="metric-sub">registrados</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Notif. enviadas</div>
+          <div class="metric-val" id="m-notif">0</div>
+          <div class="metric-sub wa">vía WhatsApp</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Servidor</div>
+          <div class="metric-val" id="m-server" style="font-size:15px;margin-top:6px;">—</div>
+          <div class="metric-sub" id="m-server-sub">—</div>
+        </div>
+      </div>
+      <div class="section-head">
+        <span class="section-title">Últimas ventas</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Cliente</th><th>Producto</th><th>Monto</th><th>Estado</th><th>WhatsApp</th></tr></thead>
+          <tbody id="tb-dashboard"></tbody>
+        </table>
+      </div>
+      <div class="empty-msg" id="empty-dash">Registra tu primera venta con el botón de arriba ↑</div>
+    </div>
+
+    <!-- Ventas -->
+    <div class="panel" id="panel-ventas">
+      <div class="section-head">
+        <span class="section-title">Todas las ventas</span>
+        <button class="btn btn-wa" onclick="openModal()">+ Nueva venta</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Fecha</th><th>Cliente</th><th>Producto</th><th>Monto</th><th>Estado</th><th>WA</th></tr></thead>
+          <tbody id="tb-ventas"></tbody>
+        </table>
+      </div>
+      <div class="empty-msg" id="empty-ventas">Sin ventas registradas</div>
+    </div>
+
+    <!-- Historial WA -->
+    <div class="panel" id="panel-log">
+      <div class="section-head">
+        <span class="section-title">Historial de notificaciones WhatsApp</span>
+        <button class="btn btn-wa" onclick="sendResumen()">📊 Enviar resumen del día</button>
+      </div>
+      <div class="notif-list" id="notif-list">
+        <div class="empty-msg">Las notificaciones enviadas aparecerán aquí</div>
+      </div>
+    </div>
+
+    <!-- Config -->
+    <div class="panel" id="panel-config">
+      <div class="config-card">
+        <div class="config-title">⚙️ URL del servidor</div>
+        <div class="form-row">
+          <label>Dirección</label>
+          <input type="text" id="cfg-url" value="http://localhost:3000" placeholder="http://localhost:3000">
+        </div>
+        <div style="display:flex;gap:8px;margin-top:6px;">
+          <button class="btn btn-wa" onclick="saveConfig()">💾 Guardar y verificar</button>
+        </div>
+        <p style="font-size:11px;color:var(--muted);margin-top:10px;">Cuando subas el servidor a Railway, pon aquí la URL pública (ej: https://ventaswa.up.railway.app)</p>
+      </div>
+      <div class="config-card">
+        <div class="config-title">🔔 Notificaciones automáticas</div>
+        <label class="modal-check" style="margin-bottom:8px;"><input type="checkbox" id="cfg-auto" checked> Notificar por WhatsApp al guardar cada venta</label>
+        <label class="modal-check"><input type="checkbox" id="cfg-resumen" checked> Mostrar botón de resumen diario</label>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal nueva venta -->
+<div class="overlay" id="overlay">
+  <div class="modal-box">
+    <div class="modal-title">🛒 Nueva venta</div>
+    <input class="modal-input" type="text" id="ns-cliente" placeholder="Nombre del cliente">
+    <input class="modal-input" type="text" id="ns-producto" placeholder="Producto o servicio">
+    <input class="modal-input" type="number" id="ns-monto" placeholder="Monto (S/)">
+    <select class="modal-input" id="ns-estado">
+      <option>Pagado</option>
+      <option>Pendiente</option>
+      <option>En proceso</option>
+      <option>Cancelado</option>
+    </select>
+    <label class="modal-check">
+      <input type="checkbox" id="ns-wa" checked>
+      Enviar notificación por WhatsApp automáticamente
+    </label>
+    <div class="modal-btns">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-wa" id="btn-save" onclick="saveVenta()">✓ Guardar venta</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let SERVER = 'http://localhost:3000';
+let ventas = [];
+let notifCount = 0;
+let totalMonto = 0;
+
+const badges = { Pagado:'badge-green', Pendiente:'badge-amber', 'En proceso':'badge-blue', Cancelado:'badge-red' };
+const today = new Date().toLocaleDateString('es-PE',{day:'2-digit',month:'2-digit',year:'2-digit'});
+
+function switchTab(id, el) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('panel-'+id).classList.add('active');
+  if(el) el.classList.add('active');
+  const titles = {dashboard:'Dashboard', ventas:'Gestión de ventas', log:'Historial WhatsApp', config:'Configuración'};
+  document.getElementById('page-title').textContent = titles[id] || '';
+}
+
+function toast(msg, err=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (err?' err':'');
+  clearTimeout(t._t);
+  t._t = setTimeout(()=>t.className='toast', 3500);
+}
+
+async function checkHealth() {
+  const dot = document.getElementById('dot');
+  const stxt = document.getElementById('status-txt');
+  try {
+    const r = await fetch(SERVER+'/health');
+    const d = await r.json();
+    if(d.ok) {
+      dot.className='dot online';
+      stxt.textContent='Conectado';
+      document.getElementById('wa-num').textContent = d.numero_destino||'—';
+      document.getElementById('m-server').textContent='Online ✓';
+      document.getElementById('m-server').style.color='var(--success)';
+      document.getElementById('m-server-sub').textContent='servidor activo';
+      toast('Servidor conectado correctamente');
+    }
+  } catch(e) {
+    dot.className='dot offline';
+    stxt.textContent='Sin conexión';
+    document.getElementById('m-server').textContent='Offline ✗';
+    document.getElementById('m-server').style.color='var(--danger)';
+    document.getElementById('m-server-sub').textContent='inicia node server.js';
+    toast('No se conectó. ¿Está corriendo node server.js?', true);
+  }
+}
+
+async function notificarWA(ruta, datos) {
+  try {
+    const r = await fetch(SERVER+'/'+ruta, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(datos)
+    });
+    const d = await r.json();
+    if(d.ok) {
+      notifCount++;
+      document.getElementById('m-notif').textContent = notifCount;
+      addLog(datos);
+      toast('✅ Mensaje enviado a WhatsApp');
+      return true;
+    } else {
+      toast('Error WA: '+d.error, true);
+      return false;
+    }
+  } catch(e) {
+    toast('No se pudo enviar. ¿Está corriendo el servidor?', true);
+    return false;
+  }
+}
+
+function addLog(datos) {
+  const list = document.getElementById('notif-list');
+  const emptyEl = list.querySelector('.empty-msg');
+  if(emptyEl) emptyEl.remove();
+  const hora = new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
+  const item = document.createElement('div');
+  item.className = 'notif-item';
+  item.innerHTML = `
+    <div class="notif-avatar">💬</div>
+    <div class="notif-body">
+      <div class="notif-title">${datos.cliente||'Resumen del día'}${datos.monto?' — S/ '+datos.monto:''}</div>
+      <div class="notif-time">Hoy a las ${hora}</div>
+      <div class="notif-msg">${datos.producto||datos.mensaje||'Resumen enviado'}</div>
+    </div>`;
+  list.prepend(item);
+}
+
+function openModal() { document.getElementById('overlay').classList.add('open'); document.getElementById('ns-cliente').focus(); }
+function closeModal() { document.getElementById('overlay').classList.remove('open'); }
+
+async function saveVenta() {
+  const c = document.getElementById('ns-cliente').value.trim();
+  const p = document.getElementById('ns-producto').value.trim();
+  const m = document.getElementById('ns-monto').value.trim();
+  const e = document.getElementById('ns-estado').value;
+  const wa = document.getElementById('ns-wa').checked;
+  const auto = document.getElementById('cfg-auto').checked;
+
+  if(!c||!p||!m) { toast('Completa todos los campos', true); return; }
+
+  const btn = document.getElementById('btn-save');
+  btn.disabled=true; btn.textContent='Guardando...';
+
+  const monto = parseFloat(m).toFixed(2);
+  const venta = {cliente:c, producto:p, monto, estado:e, fecha:today};
+  ventas.unshift(venta);
+  totalMonto += parseFloat(m);
+
+  document.getElementById('m-total').textContent = 'S/ '+totalMonto.toLocaleString('es-PE',{minimumFractionDigits:2,maximumFractionDigits:2});
+  document.getElementById('m-pedidos').textContent = ventas.length;
+  document.getElementById('m-sub').textContent = ventas.length+' venta'+(ventas.length>1?'s':'');
+
+  renderTables();
+  closeModal();
+  ['ns-cliente','ns-producto','ns-monto'].forEach(id=>document.getElementById(id).value='');
+  btn.disabled=false; btn.textContent='✓ Guardar venta';
+
+  if(wa && auto) {
+    await notificarWA('venta-nueva', {cliente:c, producto:p, monto, estado:e});
+  } else {
+    toast('Venta registrada');
+  }
+}
+
+function renderTables() {
+  document.getElementById('empty-dash').style.display = ventas.length?'none':'block';
+  document.getElementById('empty-ventas').style.display = ventas.length?'none':'block';
+
+  const tb1 = document.getElementById('tb-dashboard');
+  const tb2 = document.getElementById('tb-ventas');
+  tb1.innerHTML=''; tb2.innerHTML='';
+
+  ventas.forEach(v => {
+    const b = badges[v.estado]||'badge-blue';
+    const waBtn = `<button class="wa-btn-cell" onclick="notificarWA('venta-nueva',{cliente:'${v.cliente.replace(/'/g,"\\'")}',producto:'${v.producto.replace(/'/g,"\\'")}',monto:'${v.monto}',estado:'${v.estado}'})" title="Reenviar por WhatsApp">💬</button>`;
+
+    const tr1 = document.createElement('tr');
+    tr1.innerHTML = `<td>${v.cliente}</td><td>${v.producto}</td><td>S/ ${v.monto}</td><td><span class="badge ${b}">${v.estado}</span></td><td>${waBtn}</td>`;
+    tb1.appendChild(tr1);
+
+    const tr2 = document.createElement('tr');
+    tr2.innerHTML = `<td>${v.fecha}</td><td>${v.cliente}</td><td>${v.producto}</td><td>S/ ${v.monto}</td><td><span class="badge ${b}">${v.estado}</span></td><td>${waBtn}</td>`;
+    tb2.appendChild(tr2);
+  });
+}
+
+async function sendResumen() {
+  const pendientes = ventas.filter(v=>v.estado==='Pendiente').length;
+  await notificarWA('resumen-diario', {
+    total_ventas: totalMonto.toFixed(2),
+    num_pedidos: ventas.length,
+    pendientes
+  });
+}
+
+function saveConfig() {
+  SERVER = document.getElementById('cfg-url').value.trim().replace(/\/$/,'');
+  document.getElementById('wa-url').textContent = SERVER.replace('https://','').replace('http://','');
+  checkHealth();
+}
+
+// Verificar al cargar
+checkHealth();
+</script>
+</body>
+</html>
